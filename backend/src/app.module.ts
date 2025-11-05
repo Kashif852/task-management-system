@@ -21,15 +21,24 @@ import { AppController } from './app.controller';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const databaseUrl = configService.get('DATABASE_URL');
-        const isProduction = configService.get('NODE_ENV') === 'production';
+        // Try multiple ways to get DATABASE_URL
+        const databaseUrl = configService.get('DATABASE_URL') || process.env.DATABASE_URL;
+        const isProduction = configService.get('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production';
 
         console.log('Database configuration check:');
+        console.log('DATABASE_URL from configService:', !!configService.get('DATABASE_URL'));
+        console.log('DATABASE_URL from process.env:', !!process.env.DATABASE_URL);
         console.log('DATABASE_URL exists:', !!databaseUrl);
+        console.log('All DATABASE_* env vars:', {
+          DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+          DATABASE_PUBLIC_URL: process.env.DATABASE_PUBLIC_URL ? 'SET' : 'NOT SET',
+        });
         if (databaseUrl) {
           // Hide password in logs
           const safeUrl = databaseUrl.replace(/:[^:@]+@/, ':****@');
           console.log('DATABASE_URL:', safeUrl);
+        } else {
+          console.error('❌ DATABASE_URL is not set! Check Railway environment variables.');
         }
 
         // Support both DATABASE_URL (Railway format) and individual env vars
