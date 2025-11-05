@@ -25,10 +25,16 @@ async function bootstrap() {
     app.enableCors({
       origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
-        if (!origin) return callback(null, true);
+        if (!origin) {
+          console.log('CORS: Allowing request with no origin');
+          return callback(null, true);
+        }
         
-        // Check if origin is in allowed list
+        console.log('CORS: Checking origin:', origin);
+        
+        // Check if origin is in allowed list (exact match)
         if (allowedOrigins.includes(origin)) {
+          console.log('CORS: Allowed (exact match)');
           return callback(null, true);
         }
         
@@ -37,15 +43,20 @@ async function bootstrap() {
         const normalizedAllowed = allowedOrigins.map(o => o.replace(/\/$/, ''));
         
         if (normalizedAllowed.includes(normalizedOrigin)) {
+          console.log('CORS: Allowed (normalized match)');
           return callback(null, true);
         }
         
-        console.warn('CORS blocked origin:', origin);
-        callback(new Error('Not allowed by CORS'));
+        console.warn('CORS: BLOCKED origin:', origin);
+        console.warn('CORS: Allowed origins:', allowedOrigins);
+        callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Type', 'Authorization'],
+      preflightContinue: false,
+      optionsSuccessStatus: 204,
     });
 
     // Global exception filter
