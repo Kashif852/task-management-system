@@ -56,27 +56,40 @@ import { AppController } from './app.controller';
         }
 
         // Fallback to individual environment variables
+        const host = configService.get('POSTGRES_HOST') || process.env.POSTGRES_HOST || 'localhost';
+        const port = configService.get('POSTGRES_PORT') || process.env.POSTGRES_PORT || 5432;
+        const username = configService.get('POSTGRES_USER') || process.env.POSTGRES_USER || 'postgres';
+        const password = configService.get('POSTGRES_PASSWORD') || process.env.POSTGRES_PASSWORD || 'postgres';
+        const database = configService.get('POSTGRES_DB') || process.env.POSTGRES_DB || 'taskdb';
+        
+        console.log('Using individual PostgreSQL config (fallback)');
+        console.log('Host:', host);
+        console.log('Port:', port);
+        console.log('Database:', database);
+        
         return {
           type: 'postgres',
-          host: configService.get('POSTGRES_HOST') || 'localhost',
-          port: configService.get('POSTGRES_PORT') || 5432,
-          username: configService.get('POSTGRES_USER') || 'postgres',
-          password: configService.get('POSTGRES_PASSWORD') || 'postgres',
-          database: configService.get('POSTGRES_DB') || 'taskdb',
+          host,
+          port: typeof port === 'string' ? parseInt(port, 10) : port,
+          username,
+          password,
+          database,
           entities: [User, Task],
           synchronize: !isProduction,
-          logging: configService.get('NODE_ENV') === 'development',
+          logging: configService.get('NODE_ENV') === 'development' || process.env.NODE_ENV === 'development',
         };
       },
       inject: [ConfigService],
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        uri:
-          configService.get('MONGODB_URI') ||
-          'mongodb://localhost:27017/tasklogs',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const mongoUri = configService.get('MONGODB_URI') || process.env.MONGODB_URI || 'mongodb://localhost:27017/tasklogs';
+        console.log('MongoDB URI configured:', mongoUri ? 'SET' : 'NOT SET');
+        return {
+          uri: mongoUri,
+        };
+      },
       inject: [ConfigService],
     }),
     CacheModule.register({
