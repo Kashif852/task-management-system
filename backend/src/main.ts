@@ -71,6 +71,17 @@ async function bootstrap() {
       }),
     );
 
+    // Add request logging middleware to debug CORS
+    app.use((req, res, next) => {
+      console.log(`[${req.method}] ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+      console.log('Request headers:', {
+        origin: req.headers.origin,
+        'access-control-request-method': req.headers['access-control-request-method'],
+        'access-control-request-headers': req.headers['access-control-request-headers'],
+      });
+      next();
+    });
+
     const port = process.env.PORT || 3001;
     await app.listen(port, '0.0.0.0');
     console.log(`✅ Application is running on: http://0.0.0.0:${port}`);
