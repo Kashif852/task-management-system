@@ -24,6 +24,14 @@ import { AppController } from './app.controller';
         const databaseUrl = configService.get('DATABASE_URL');
         const isProduction = configService.get('NODE_ENV') === 'production';
 
+        console.log('Database configuration check:');
+        console.log('DATABASE_URL exists:', !!databaseUrl);
+        if (databaseUrl) {
+          // Hide password in logs
+          const safeUrl = databaseUrl.replace(/:[^:@]+@/, ':****@');
+          console.log('DATABASE_URL:', safeUrl);
+        }
+
         // Support both DATABASE_URL (Railway format) and individual env vars
         if (databaseUrl) {
           return {
