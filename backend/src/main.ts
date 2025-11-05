@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   try {
@@ -72,7 +73,7 @@ async function bootstrap() {
     );
 
     // Add request logging middleware to debug CORS
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
       console.log(`[${req.method}] ${req.path} - Origin: ${req.headers.origin || 'none'}`);
       console.log('Request headers:', {
         origin: req.headers.origin,
