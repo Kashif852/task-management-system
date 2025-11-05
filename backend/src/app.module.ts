@@ -57,12 +57,18 @@ import { AppController } from './app.controller';
         if (databaseUrl) {
           const safeUrl = databaseUrl.replace(/:[^:@]+@/, ':****@');
           console.log('✅ Using DATABASE_URL:', safeUrl);
+          
+          // Allow synchronize in production if INITIAL_SYNC env var is set (for initial table creation)
+          // After tables are created, remove INITIAL_SYNC env var to disable synchronize
+          const allowSync = !isProduction || process.env.INITIAL_SYNC === 'true';
+          console.log('Synchronize enabled:', allowSync);
+          
           return {
             type: 'postgres',
             url: databaseUrl,
             ssl: isProduction ? { rejectUnauthorized: false } : false,
             entities: [User, Task],
-            synchronize: !isProduction,
+            synchronize: allowSync,
             logging: !isProduction,
           };
         }
@@ -78,12 +84,16 @@ import { AppController } from './app.controller';
           // Build connection URL from individual vars
           const builtUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}`;
           
+          // Allow synchronize in production if INITIAL_SYNC env var is set
+          const allowSync = !isProduction || process.env.INITIAL_SYNC === 'true';
+          console.log('Synchronize enabled:', allowSync);
+          
           return {
             type: 'postgres',
             url: builtUrl,
             ssl: isProduction ? { rejectUnauthorized: false } : false,
             entities: [User, Task],
-            synchronize: !isProduction,
+            synchronize: allowSync,
             logging: !isProduction,
           };
         }
