@@ -16,7 +16,9 @@ import { AppController } from './app.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: process.env.NODE_ENV === 'production' ? undefined : '.env',
+      // In production (Railway), env vars come from process.env directly
+      // In development, use .env file
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
