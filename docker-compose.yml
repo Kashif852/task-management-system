@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # Using local PostgreSQL instead of Docker container
+  # postgres_db:
+  #   image: postgres:15-alpine
+  #   container_name: task-postgres
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: taskdb
+  #   ports:
+  #     - '5433:5432'
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ['CMD-SHELL', 'pg_isready -U postgres']
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  mongo_db:
+    image: mongo:7
+    container_name: task-mongo
+    environment:
+      MONGO_INITDB_DATABASE: tasklogs
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis_cache:
+    image: redis:7-alpine
+    container_name: task-redis
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: task-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      FRONTEND_URL: http://localhost:3000
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 24h
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+      POSTGRES_DB: taskdb
+      MONGODB_URI: mongodb://mongo_db:27017/tasklogs
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+    ports:
+      - '3001:3001'
+    depends_on:
+      mongo_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: task-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  # postgres_data:  # Using local PostgreSQL
+  mongo_data:
+  redis_data:
+
