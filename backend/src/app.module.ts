@@ -9,8 +9,10 @@ import { TasksModule } from './tasks/tasks.module';
 import { EventsModule } from './events/events.module';
 import { User } from './users/entities/user.entity';
 import { Task } from './tasks/entities/task.entity';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
@@ -18,16 +20,35 @@ import { Task } from './tasks/entities/task.entity';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('POSTGRES_HOST') || 'localhost',
-        port: configService.get('POSTGRES_PORT') || 5432,
-        username: configService.get('POSTGRES_USER') || 'postgres',
-        password: configService.get('POSTGRES_PASSWORD') || 'postgres',
-        database: configService.get('POSTGRES_DB') || 'taskdb',
-        entities: [User, Task],
-        synchronize: configService.get('NODE_ENV') !== 'production',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get('DATABASE_URL');
+        const isProduction = configService.get('NODE_ENV') === 'production';
+
+        // Support both DATABASE_URL (Railway format) and individual env vars
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: isProduction ? { rejectUnauthorized: false } : false,
+            entities: [User, Task],
+            synchronize: !isProduction, // IMPORTANT: false in production
+            logging: configService.get('NODE_ENV') === 'development',
+          };
+        }
+
+        // Fallback to individual environment variables
+        return {
+          type: 'postgres',
+          host: configService.get('POSTGRES_HOST') || 'localhost',
+          port: configService.get('POSTGRES_PORT') || 5432,
+          username: configService.get('POSTGRES_USER') || 'postgres',
+          password: configService.get('POSTGRES_PASSWORD') || 'postgres',
+          database: configService.get('POSTGRES_DB') || 'taskdb',
+          entities: [User, Task],
+          synchronize: !isProduction,
+          logging: configService.get('NODE_ENV') === 'development',
+        };
+      },
       inject: [ConfigService],
     }),
     MongooseModule.forRootAsync({
