@@ -23,60 +23,83 @@ import { AppController } from './app.controller';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        // Try multiple ways to get DATABASE_URL
-        const databaseUrl = configService.get('DATABASE_URL') || process.env.DATABASE_URL;
         const isProduction = configService.get('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production';
 
         console.log('Database configuration check:');
+        console.log('All available env vars:', Object.keys(process.env).filter(k => k.includes('POSTGRES') || k.includes('DATABASE')).join(', '));
+        
+        // Try multiple ways to get DATABASE_URL
+        const databaseUrl = configService.get('DATABASE_URL') || process.env.DATABASE_URL;
+        
+        // Try to build DATABASE_URL from individual PostgreSQL variables (Railway provides these)
+        const pgHost = configService.get('PGHOST') || process.env.PGHOST || 
+                       configService.get('POSTGRES_HOST') || process.env.POSTGRES_HOST;
+        const pgPort = configService.get('PGPORT') || process.env.PGPORT || 
+                       configService.get('POSTGRES_PORT') || process.env.POSTGRES_PORT || '5432';
+        const pgUser = configService.get('PGUSER') || process.env.PGUSER || 
+                       configService.get('POSTGRES_USER') || process.env.POSTGRES_USER || 'postgres';
+        const pgPassword = configService.get('PGPASSWORD') || process.env.PGPASSWORD || 
+                           configService.get('POSTGRES_PASSWORD') || process.env.POSTGRES_PASSWORD;
+        const pgDatabase = configService.get('PGDATABASE') || process.env.PGDATABASE || 
+                           configService.get('POSTGRES_DB') || process.env.POSTGRES_DB || 'railway';
+
         console.log('DATABASE_URL from configService:', !!configService.get('DATABASE_URL'));
         console.log('DATABASE_URL from process.env:', !!process.env.DATABASE_URL);
-        console.log('DATABASE_URL exists:', !!databaseUrl);
-        console.log('All DATABASE_* env vars:', {
-          DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-          DATABASE_PUBLIC_URL: process.env.DATABASE_PUBLIC_URL ? 'SET' : 'NOT SET',
+        console.log('PostgreSQL individual vars:', {
+          PGHOST: pgHost || 'NOT SET',
+          PGPORT: pgPort || 'NOT SET',
+          PGUSER: pgUser || 'NOT SET',
+          PGPASSWORD: pgPassword ? 'SET' : 'NOT SET',
+          PGDATABASE: pgDatabase || 'NOT SET',
         });
-        if (databaseUrl) {
-          // Hide password in logs
-          const safeUrl = databaseUrl.replace(/:[^:@]+@/, ':****@');
-          console.log('DATABASE_URL:', safeUrl);
-        } else {
-          console.error('❌ DATABASE_URL is not set! Check Railway environment variables.');
-        }
 
-        // Support both DATABASE_URL (Railway format) and individual env vars
+        // If DATABASE_URL exists, use it
         if (databaseUrl) {
+          const safeUrl = databaseUrl.replace(/:[^:@]+@/, ':****@');
+          console.log('✅ Using DATABASE_URL:', safeUrl);
           return {
             type: 'postgres',
             url: databaseUrl,
             ssl: isProduction ? { rejectUnauthorized: false } : false,
             entities: [User, Task],
-            synchronize: !isProduction, // IMPORTANT: false in production
-            logging: configService.get('NODE_ENV') === 'development',
+            synchronize: !isProduction,
+            logging: !isProduction,
           };
         }
 
-        // Fallback to individual environment variables
-        const host = configService.get('POSTGRES_HOST') || process.env.POSTGRES_HOST || 'localhost';
-        const port = configService.get('POSTGRES_PORT') || process.env.POSTGRES_PORT || 5432;
-        const username = configService.get('POSTGRES_USER') || process.env.POSTGRES_USER || 'postgres';
-        const password = configService.get('POSTGRES_PASSWORD') || process.env.POSTGRES_PASSWORD || 'postgres';
-        const database = configService.get('POSTGRES_DB') || process.env.POSTGRES_DB || 'taskdb';
-        
-        console.log('Using individual PostgreSQL config (fallback)');
-        console.log('Host:', host);
-        console.log('Port:', port);
-        console.log('Database:', database);
-        
+        // If we have all individual PostgreSQL vars, build connection string or use individual config
+        if (pgHost && pgUser && pgPassword && pgDatabase) {
+          console.log('✅ Using individual PostgreSQL variables');
+          console.log('Host:', pgHost);
+          console.log('Port:', pgPort);
+          console.log('Database:', pgDatabase);
+          console.log('User:', pgUser);
+          
+          // Build connection URL from individual vars
+          const builtUrl = `postgresql://${pgUser}:${pgPassword}@${pgHost}:${pgPort}/${pgDatabase}`;
+          
+          return {
+            type: 'postgres',
+            url: builtUrl,
+            ssl: isProduction ? { rejectUnauthorized: false } : false,
+            entities: [User, Task],
+            synchronize: !isProduction,
+            logging: !isProduction,
+          };
+        }
+
+        // Final fallback to localhost
+        console.warn('⚠️ Using localhost fallback - this will fail in production!');
         return {
           type: 'postgres',
-          host,
-          port: typeof port === 'string' ? parseInt(port, 10) : port,
-          username,
-          password,
-          database,
+          host: 'localhost',
+          port: 5432,
+          username: 'postgres',
+          password: 'postgres',
+          database: 'taskdb',
           entities: [User, Task],
           synchronize: !isProduction,
-          logging: configService.get('NODE_ENV') === 'development' || process.env.NODE_ENV === 'development',
+          logging: !isProduction,
         };
       },
       inject: [ConfigService],
