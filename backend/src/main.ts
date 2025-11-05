@@ -14,8 +14,35 @@ async function bootstrap() {
     // Enable CORS for frontend
     const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000';
     console.log('CORS Origin configured:', corsOrigin);
+    console.log('All CORS-related env vars:', {
+      CORS_ORIGIN: process.env.CORS_ORIGIN,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+    });
+    
+    // Support multiple origins (comma-separated) or single origin
+    const allowedOrigins = corsOrigin.split(',').map(origin => origin.trim());
+    
     app.enableCors({
-      origin: corsOrigin,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        
+        // Also allow if origin matches without trailing slash
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        const normalizedAllowed = allowedOrigins.map(o => o.replace(/\/$/, ''));
+        
+        if (normalizedAllowed.includes(normalizedOrigin)) {
+          return callback(null, true);
+        }
+        
+        console.warn('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
