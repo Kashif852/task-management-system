@@ -24,12 +24,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Internal server error';
 
-    // Log full error in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Exception caught:', exception);
-      if (exception instanceof Error) {
-        console.error('Stack trace:', exception.stack);
-      }
+    // Log full error (always log in production for debugging)
+    console.error('❌ Exception caught:', exception);
+    if (exception instanceof Error) {
+      console.error('❌ Error message:', exception.message);
+      console.error('❌ Stack trace:', exception.stack);
     }
 
     // Don't expose raw database errors
